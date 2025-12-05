@@ -1,7 +1,9 @@
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdtempSync, rmdirSync } from "fs";
+import { tmpdir } from "os";
+import { execSync } from "child_process";
 import { Client } from "ssh2";
-import { resolve } from "path";
+import { resolve, join } from "path";
 import { z } from "zod";
 import type {
   ServersConfig,
@@ -396,16 +398,118 @@ function shellQuote(arg: string): string {
   return "'" + arg.replace(/'/g, "'\"'\"'") + "'";
 }
 
+// Cache for PHP availability check (null = not checked yet)
+let phpAvailable: boolean | null = null;
+
+/**
+ * Check if PHP is available locally for syntax checking
+ */
+function isPhpAvailable(): boolean {
+  if (phpAvailable !== null) {
+    return phpAvailable;
+  }
+  
+  try {
+    execSync("php -v", { stdio: "pipe" });
+    phpAvailable = true;
+  } catch {
+    phpAvailable = false;
+  }
+  
+  return phpAvailable;
+}
+
+/**
+ * Result from PHP syntax check
+ */
+interface PhpSyntaxCheckResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Check PHP code syntax locally using `php -l`
+ * Returns { valid: true } if syntax is correct or PHP is not available locally
+ * Returns { valid: false, error: "..." } if there's a syntax error
+ */
+function checkPhpSyntax(phpCode: string): PhpSyntaxCheckResult {
+  if (!isPhpAvailable()) {
+    // PHP not available locally, skip syntax check
+    return { valid: true };
+  }
+  
+  // Create a temporary file with the PHP code
+  let tempDir: string;
+  let tempFile: string;
+  
+  try {
+    tempDir = mkdtempSync(join(tmpdir(), "wp-mcp-"));
+    tempFile = join(tempDir, "syntax-check.php");
+    
+    // Write the PHP code with <?php tag
+    writeFileSync(tempFile, `<?php\n${phpCode}`);
+    
+    try {
+      // Run php -l to check syntax
+      execSync(`php -l "${tempFile}"`, { stdio: "pipe" });
+      return { valid: true };
+    } catch (error: unknown) {
+      // Extract the error message from execSync error
+      const execError = error as { stderr?: Buffer; stdout?: Buffer };
+      const stderr = execError.stderr?.toString() || "";
+      const stdout = execError.stdout?.toString() || "";
+      const output = stderr || stdout;
+      
+      if (output) {
+        // Parse PHP's error output to extract the meaningful part
+        // Typical format: "PHP Parse error: syntax error, ... in /path/to/file on line X"
+        const match = output.match(/^(.*?)\s+in\s+.*?syntax-check\.php\s+on\s+line\s+(\d+)/im);
+        if (match) {
+          // Adjust line number to account for the <?php we added
+          const lineNum = parseInt(match[2], 10) - 1;
+          return { 
+            valid: false, 
+            error: `${match[1].trim()} on line ${lineNum}` 
+          };
+        }
+        
+        // Fallback: return the raw error
+        return { valid: false, error: output.trim() };
+      }
+      return { valid: false, error: "PHP syntax error" };
+    }
+  } catch {
+    // If we can't create temp file or something else fails, skip the check
+    return { valid: true };
+  } finally {
+    // Clean up temp file and directory
+    try {
+      if (tempFile!) unlinkSync(tempFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+    try {
+      if (tempDir!) {
+        // rmdirSync only works on empty directories, which is fine since we deleted the file
+        rmdirSync(tempDir);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 /**
  * Execute PHP code on a remote WordPress server
  * 
  * This function:
  * 1. Reads PHP code from a local file OR accepts raw code
  * 2. Strips <?php and ?> tags if present (supports both with and without)
- * 3. Creates a temporary PHP file on the remote server
- * 4. Executes it via `wp eval-file` (WordPress is bootstrapped)
- * 5. Cleans up the temporary file
- * 6. Returns the result, attempting to parse JSON output
+ * 3. Checks PHP syntax locally if PHP is available
+ * 4. Creates a temporary PHP file on the remote server
+ * 5. Executes it via `wp eval-file` (WordPress is bootstrapped)
+ * 6. Cleans up the temporary file
+ * 7. Returns the result, attempting to parse JSON output
  * 
  * @param domain - The WordPress server domain
  * @param phpCodeOrPath - PHP code to execute (with or without <?php tag) OR path to a local PHP file
@@ -493,6 +597,19 @@ export async function executePhpCode(
     phpCode = phpCode.replace(/^<\?php\s*/i, "");
     // Also strip closing ?> tag if present
     phpCode = phpCode.replace(/\?>\s*$/i, "");
+  }
+  
+  // Check PHP syntax locally before sending to remote server
+  const syntaxCheck = checkPhpSyntax(phpCode);
+  if (!syntaxCheck.valid) {
+    return {
+      success: false,
+      stdout: "",
+      stderr: "",
+      code: -1,
+      error: `PHP syntax error: ${syntaxCheck.error}`,
+      source,
+    };
   }
   
   const sshConfig = getSshConfig(domain);
