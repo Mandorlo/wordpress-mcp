@@ -1,0 +1,31 @@
+{
+  "name": "wordpress-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for WordPress administration via SSH",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "wordpress-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.js",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.1",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "ssh2": "^1.17.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/ssh2": "^1.15.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

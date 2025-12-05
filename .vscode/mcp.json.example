@@ -1,0 +1,11 @@
+{
+    "servers": {
+       "wordpress-mcp": {
+            "command": "node",
+            "args": [
+                "/path/to/wordpress-mcp/dist/index.js",
+                "/path/to/your/servers.json"
+            ]
+        }
+    }
+}

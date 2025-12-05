@@ -1,0 +1,23 @@
+{
+    "ssh": {
+        "privateKeyPath": "C:\\path\\to\\your\\private_key"
+    },
+    "hostingProviders": {
+        "siteground": {
+            "ssh": {
+                "port": 18765,
+                "wpRootPath": "/home/{username}/www/{host}/public_html"
+            }
+        }
+    },
+    "servers": {
+        "example.com": {
+            "name": "My Example Site",
+            "host": "example.com",
+            "hostingProvider": "siteground",
+            "ssh": {
+                "username": "myusername"
+            }
+        }
+    }
+}
