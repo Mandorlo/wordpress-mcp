@@ -88,7 +88,8 @@ export interface ScriptContext {
   /** 
    * Execute PHP code on the target server via wp eval-file.
    * Can accept either raw PHP code or a local file path.
-   * @param phpCodeOrPath - Raw PHP code (without <?php tag) or path to a local .php file
+   * Automatically strips <?php and ?> tags if present.
+   * @param phpCodeOrPath - Raw PHP code or path to a local .php file
    * @param options - Options to control interpretation (auto-detects by default)
    */
   runPhpCode: (phpCodeOrPath: string, options?: PhpCodeOptions) => Promise<PhpCodeResult>;
@@ -137,4 +138,9 @@ export interface PhpCodeOptions {
    * - 'code': Treat input as raw PHP code
    */
   type?: "auto" | "file" | "code";
+  /**
+   * CLI arguments to pass to the PHP script.
+   * These will be available in PHP as $args (WP-CLI's variable, 0-indexed).
+   */
+  args?: string[];
 }

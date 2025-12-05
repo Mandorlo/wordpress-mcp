@@ -1,3 +1,4 @@
+<?php
 /**
  * Get entries/submissions for a Formidable Form
  * 

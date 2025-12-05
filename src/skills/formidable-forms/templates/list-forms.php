@@ -1,3 +1,4 @@
+<?php
 /**
  * List all Formidable Forms on a WordPress site
  * 

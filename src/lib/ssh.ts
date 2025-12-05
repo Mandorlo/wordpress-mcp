@@ -401,13 +401,14 @@ function shellQuote(arg: string): string {
  * 
  * This function:
  * 1. Reads PHP code from a local file OR accepts raw code
- * 2. Creates a temporary PHP file on the remote server
- * 3. Executes it via `wp eval-file` (WordPress is bootstrapped)
- * 4. Cleans up the temporary file
- * 5. Returns the result, attempting to parse JSON output
+ * 2. Strips <?php and ?> tags if present (supports both with and without)
+ * 3. Creates a temporary PHP file on the remote server
+ * 4. Executes it via `wp eval-file` (WordPress is bootstrapped)
+ * 5. Cleans up the temporary file
+ * 6. Returns the result, attempting to parse JSON output
  * 
  * @param domain - The WordPress server domain
- * @param phpCodeOrPath - PHP code to execute (without <?php opening tag) OR path to a local PHP file
+ * @param phpCodeOrPath - PHP code to execute (with or without <?php tag) OR path to a local PHP file
  * @param options - Options for execution
  * @returns Result with parsed JSON data if output is valid JSON
  */
@@ -487,6 +488,11 @@ export async function executePhpCode(
     // It's raw PHP code
     phpCode = phpCodeOrPath;
     source = "code";
+    
+    // Strip <?php opening tag if present (we add it ourselves)
+    phpCode = phpCode.replace(/^<\?php\s*/i, "");
+    // Also strip closing ?> tag if present
+    phpCode = phpCode.replace(/\?>\s*$/i, "");
   }
   
   const sshConfig = getSshConfig(domain);

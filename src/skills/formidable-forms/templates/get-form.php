@@ -1,3 +1,4 @@
+<?php
 /**
  * Get detailed information about a specific Formidable Form including all fields
  * 

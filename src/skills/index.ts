@@ -238,8 +238,8 @@ export async function runSkillScript(
           code: result.code,
         };
       },
-      runPhpCode: async (phpCode: string) => {
-        return await executePhpCode(domain, phpCode);
+      runPhpCode: async (phpCodeOrPath: string, options?: { type?: "auto" | "file" | "code"; args?: string[] }) => {
+        return await executePhpCode(domain, phpCodeOrPath, options);
       },
     };
 
